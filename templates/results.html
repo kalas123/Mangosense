@@ -27,9 +27,25 @@
                             </h4>
                         </div>
                         <div class="col-md-4 text-end">
-                            <span class="badge bg-light text-dark fs-6">
-                                Analysis ID: {{ analysis_id }}
-                            </span>
+                            <div class="d-flex flex-column align-items-end">
+                                <span class="badge bg-light text-dark fs-6 mb-1">
+                                    Analysis ID: {{ analysis_id }}
+                                </span>
+                                {% if result.processing_source %}
+                                <div class="processing-info">
+                                    <span class="badge {% if result.processing_source == 'colab' %}bg-success{% else %}bg-secondary{% endif %} fs-6">
+                                        <i class="fas {% if result.processing_source == 'colab' %}fa-cloud{% else %}fa-desktop{% endif %} me-1"></i>
+                                        {{ result.processing_source|title }} Processing
+                                    </span>
+                                    {% if result.has_background_removal %}
+                                    <span class="badge bg-info text-white fs-6 ms-1">
+                                        <i class="fas fa-magic me-1"></i>
+                                        Background Removed
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -67,8 +83,47 @@
                         <!-- Image Display -->
                         <div class="col-md-6">
                             <div class="analyzed-image text-center">
+                                {% if result.processed_image and result.has_background_removal %}
+                                <div class="image-tabs mb-3">
+                                    <ul class="nav nav-pills nav-fill" id="imageTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="original-tab" data-bs-toggle="pill" 
+                                                    data-bs-target="#original-image" type="button" role="tab">
+                                                <i class="fas fa-image me-1"></i>Original
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="processed-tab" data-bs-toggle="pill" 
+                                                    data-bs-target="#processed-image" type="button" role="tab">
+                                                <i class="fas fa-magic me-1"></i>Processed
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="tab-content" id="imageTabContent">
+                                    <div class="tab-pane fade show active" id="original-image" role="tabpanel">
+                                        <h6>Original Image</h6>
+                                        <img src="{{ result.original_image }}" 
+                                             class="img-fluid rounded shadow" 
+                                             style="max-height: 300px;" 
+                                             alt="Original mango leaf">
+                                    </div>
+                                    <div class="tab-pane fade" id="processed-image" role="tabpanel">
+                                        <h6>Background Removed</h6>
+                                        <img src="{{ result.processed_image }}" 
+                                             class="img-fluid rounded shadow" 
+                                             style="max-height: 300px;" 
+                                             alt="Processed mango leaf">
+                                    </div>
+                                </div>
+                                {% else %}
                                 <h6>Analyzed Image</h6>
-                                {% if result.image_path %}
+                                {% if result.original_image %}
+                                    <img src="{{ result.original_image }}" 
+                                         class="img-fluid rounded shadow" 
+                                         style="max-height: 300px;" 
+                                         alt="Analyzed mango leaf">
+                                {% elif result.image_path %}
                                     <img src="{{ url_for('static', filename='uploads/' + result.filename) }}" 
                                          class="img-fluid rounded shadow" 
                                          style="max-height: 300px;" 
@@ -78,6 +133,7 @@
                                          style="height: 300px;">
                                         <i class="fas fa-image fa-3x text-muted"></i>
                                     </div>
+                                {% endif %}
                                 {% endif %}
                             </div>
                         </div>

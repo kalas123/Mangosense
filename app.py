@@ -14,6 +14,10 @@ import numpy as np
 from io import BytesIO
 import base64
 import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -55,6 +59,7 @@ from xai_explainer import XAIExplainer
 from comprehensive_xai_explainer import ComprehensiveXAIExplainer
 from multi_model_manager import MultiModelManager
 from treatments import get_treatment_recommendation
+from colab_service import get_colab_service
 
 # Global variables for model and explainer
 model = None
@@ -78,8 +83,8 @@ CLASS_NAMES = [
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def process_image(image_path):
-    """Process uploaded image and return prediction with XAI visualization"""
+def process_image_local(image_path):
+    """Process uploaded image locally (fallback method)"""
     global model, explainer
     
     try:
@@ -130,8 +135,39 @@ def process_image(image_path):
         return result, None
         
     except Exception as e:
-        logging.error(f"Error processing image: {str(e)}")
-        return None, f"Error processing image: {str(e)}"
+        logging.error(f"Error processing image locally: {str(e)}")
+        return None, f"Error processing image locally: {str(e)}"
+
+def process_image(image_path):
+    """Process uploaded image with Colab service (with local fallback)"""
+    colab_service = get_colab_service()
+    
+    # Try Colab service first if available
+    if colab_service.is_available():
+        try:
+            logging.info("Attempting to process image via Colab service")
+            result, error = colab_service.process_image(image_path)
+            
+            if result and not error:
+                logging.info("Image processed successfully via Colab")
+                # Add processing source info
+                result['processing_source'] = 'colab'
+                result['has_background_removal'] = True
+                return result, None
+            else:
+                logging.warning(f"Colab processing failed: {error}")
+        except Exception as e:
+            logging.error(f"Colab service error: {str(e)}")
+    
+    # Fallback to local processing
+    logging.info("Falling back to local image processing")
+    result, error = process_image_local(image_path)
+    
+    if result:
+        result['processing_source'] = 'local'
+        result['has_background_removal'] = False
+        
+    return result, error
 
 @app.route('/api/health')
 def health_check():
@@ -151,6 +187,10 @@ def health_check():
         # Check XAI availability
         xai_available = explainer is not None or model_loaded
         
+        # Check Colab service status
+        colab_service = get_colab_service()
+        colab_info = colab_service.get_service_info()
+        
         return jsonify({
             'status': 'healthy',
             'model_loaded': model_loaded,
@@ -158,7 +198,13 @@ def health_check():
             'xai_available': xai_available,
             'supported_classes': CLASS_NAMES,
             'captum_available': getattr(explainer, 'CAPTUM_AVAILABLE', False) if explainer else False,
-            'lime_available': getattr(explainer, 'LIME_AVAILABLE', False) if explainer else False
+            'lime_available': getattr(explainer, 'LIME_AVAILABLE', False) if explainer else False,
+            'colab_service': colab_info,
+            'processing_modes': {
+                'local': model_loaded,
+                'colab': colab_info['is_available'],
+                'background_removal': colab_info['is_available']
+            }
         })
     except Exception as e:
         return jsonify({
@@ -166,8 +212,36 @@ def health_check():
             'error': str(e),
             'model_loaded': False,
             'device': str(device),
-            'xai_available': False
+            'xai_available': False,
+            'colab_service': {'url': None, 'is_available': False}
         }), 500
+
+@app.route('/api/colab/config', methods=['GET', 'POST'])
+def colab_config():
+    """Manage Colab service configuration"""
+    colab_service = get_colab_service()
+    
+    if request.method == 'POST':
+        try:
+            data = request.get_json()
+            if not data or 'url' not in data:
+                return jsonify({'error': 'URL is required'}), 400
+            
+            new_url = data['url'].strip()
+            if new_url:
+                colab_service.update_url(new_url)
+                return jsonify({
+                    'message': 'Colab URL updated successfully',
+                    'service_info': colab_service.get_service_info()
+                })
+            else:
+                return jsonify({'error': 'Invalid URL'}), 400
+                
+        except Exception as e:
+            return jsonify({'error': f'Failed to update URL: {str(e)}'}), 500
+    
+    # GET request - return current configuration
+    return jsonify(colab_service.get_service_info())
 
 @app.route('/')
 def index():
