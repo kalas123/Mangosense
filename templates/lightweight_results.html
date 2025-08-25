@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results - Mango Disease Detection</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #2E7D32;
+            --secondary-color: #4CAF50;
+            --accent-color: #8BC34A;
+            --background-color: #F1F8E9;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--background-color), #E8F5E8);
+            min-height: 100vh;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .prediction-card {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(139, 195, 74, 0.1));
+            border-left: 5px solid var(--primary-color);
+        }
+        
+        .confidence-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin: 0 auto;
+        }
+        
+        .confidence-high { background: conic-gradient(var(--primary-color) var(--confidence-deg, 0deg), #e9ecef 0deg); }
+        .confidence-medium { background: conic-gradient(#FF9800 var(--confidence-deg, 0deg), #e9ecef 0deg); }
+        .confidence-low { background: conic-gradient(#F44336 var(--confidence-deg, 0deg), #e9ecef 0deg); }
+        
+        .confidence-inner {
+            background: white;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .result-image {
+            max-height: 400px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .treatment-card {
+            background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 193, 7, 0.1));
+            border-left: 5px solid #FF9800;
+        }
+        
+        .processing-info {
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1), rgba(100, 181, 246, 0.1));
+            border-left: 5px solid #2196F3;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 10px;
+        }
+        
+        .probability-bar {
+            height: 25px;
+            border-radius: 12px;
+            background-color: #e9ecef;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        
+        .probability-fill {
+            height: 100%;
+            border-radius: 12px;
+            background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+            transition: width 0.8s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+        
+        .image-comparison {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .comparison-item {
+            text-align: center;
+            background: white;
+            padding: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-item img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+        }
+        
+        .processing-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin: 0.25rem;
+        }
+        
+        .badge-gpu { background-color: #E3F2FD; color: #1976D2; }
+        .badge-bg-removed { background-color: #E8F5E8; color: #2E7D32; }
+        .badge-model { background-color: #FFF3E0; color: #E65100; }
+        .badge-explanation { background-color: #F3E5F5; color: #7B1FA2; }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container text-center">
+            <h1 class="display-6 mb-3">
+                <i class="fas fa-microscope me-3"></i>
+                Analysis Complete
+            </h1>
+            <p class="lead">
+                AI-powered disease detection results with explainable insights
+            </p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Processing Info -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card processing-info">
+                    <div class="card-body">
+                        <h6><i class="fas fa-microchip me-2"></i>Processing Information</h6>
+                        <div class="d-flex flex-wrap">
+                            <span class="processing-badge badge-gpu">
+                                <i class="fas fa-microchip me-2"></i>GPU Accelerated
+                            </span>
+                            {% if result.processing_info.background_removed %}
+                            <span class="processing-badge badge-bg-removed">
+                                <i class="fas fa-cut me-2"></i>Background Removed
+                            </span>
+                            {% endif %}
+                            <span class="processing-badge badge-model">
+                                <i class="fas fa-brain me-2"></i>{{ result.processing_info.model_used|title }}
+                            </span>
+                            <span class="processing-badge badge-explanation">
+                                <i class="fas fa-search-plus me-2"></i>{{ result.processing_info.explanation_method|title }}
+                            </span>
+                        </div>
+                        <small class="text-muted">
+                            Processing time: {{ "%.2f"|format(result.processing_time) }}s | 
+                            Device: {{ result.processing_info.device }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Results -->
+        <div class="row mb-4">
+            <!-- Prediction Results -->
+            <div class="col-lg-6 mb-4">
+                <div class="card prediction-card h-100">
+                    <div class="card-body text-center">
+                        <h5><i class="fas fa-chart-line me-2"></i>Disease Detection</h5>
+                        
+                        <!-- Disease Icon -->
+                        <div class="mb-3">
+                            {% if result.prediction.predicted_class == 'Healthy' %}
+                                <i class="fas fa-check-circle fa-4x text-success"></i>
+                            {% else %}
+                                <i class="fas fa-exclamation-triangle fa-4x text-warning"></i>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Predicted Class -->
+                        <h3 class="text-primary mb-3">
+                            {{ result.prediction.predicted_class.replace('_', ' ') }}
+                        </h3>
+                        
+                        <!-- Confidence Circle -->
+                        <div class="confidence-circle 
+                            {% if result.prediction.confidence > 0.8 %}confidence-high
+                            {% elif result.prediction.confidence > 0.5 %}confidence-medium
+                            {% else %}confidence-low{% endif %}"
+                            style="--confidence-deg: {{ result.prediction.confidence * 360 }}deg;">
+                            <div class="confidence-inner">
+                                <strong>{{ "%.1f"|format(result.prediction.confidence * 100) }}%</strong>
+                            </div>
+                        </div>
+                        <p class="text-muted mt-2">Confidence Score</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Image Results -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5><i class="fas fa-image me-2"></i>Visual Analysis</h5>
+                        
+                        {% if result.images.report %}
+                        <div class="text-center">
+                            <img src="{{ url_for('serve_image', filename=result.images.report) }}" 
+                                 class="img-fluid result-image" 
+                                 alt="Analysis Report">
+                            <p class="text-muted mt-2 small">
+                                Comprehensive analysis report with heatmap overlay
+                            </p>
+                        </div>
+                        {% else %}
+                        <!-- Image Comparison Grid -->
+                        <div class="image-comparison">
+                            {% if result.images.original %}
+                            <div class="comparison-item">
+                                <h6>Original Image</h6>
+                                <img src="{{ url_for('serve_image', filename=result.images.original) }}" 
+                                     alt="Original">
+                            </div>
+                            {% endif %}
+                            
+                            {% if result.images.processed %}
+                            <div class="comparison-item">
+                                <h6>Background Removed</h6>
+                                <img src="{{ url_for('serve_image', filename=result.images.processed) }}" 
+                                     alt="Processed">
+                            </div>
+                            {% endif %}
+                            
+                            {% if result.images.heatmap %}
+                            <div class="comparison-item">
+                                <h6>AI Focus Areas</h6>
+                                <img src="{{ url_for('serve_image', filename=result.images.heatmap) }}" 
+                                     alt="Heatmap">
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Probabilities -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5><i class="fas fa-chart-bar me-2"></i>Detailed Probabilities</h5>
+                        <div class="row">
+                            {% for class_name, probability in result.prediction.all_probabilities.items() %}
+                            <div class="col-md-6 mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="fw-medium">{{ class_name.replace('_', ' ') }}</span>
+                                    <span class="text-muted">{{ "%.2f"|format(probability * 100) }}%</span>
+                                </div>
+                                <div class="probability-bar">
+                                    <div class="probability-fill" 
+                                         style="width: {{ probability * 100 }}%;">
+                                        {% if probability > 0.1 %}{{ "%.1f"|format(probability * 100) }}%{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Treatment Recommendation -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card treatment-card">
+                    <div class="card-body">
+                        <h5>
+                            <i class="fas fa-prescription-bottle-alt me-2"></i>
+                            Treatment Recommendation
+                        </h5>
+                        
+                        {% if result.prediction.predicted_class == 'Healthy' %}
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-leaf me-2"></i>Healthy Leaf Detected</h6>
+                            <p class="mb-0">
+                                Great news! The analyzed leaf appears to be healthy with no signs of disease detected.
+                                Continue with regular monitoring and good agricultural practices.
+                            </p>
+                        </div>
+                        {% else %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-medkit me-2"></i>Treatment</h6>
+                                <p>{{ result.treatment.treatment }}</p>
+                                
+                                <h6><i class="fas fa-shield-alt me-2"></i>Prevention</h6>
+                                <p>{{ result.treatment.prevention }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-exclamation-circle me-2"></i>Severity Level</h6>
+                                <span class="badge 
+                                    {% if result.treatment.severity == 'High' %}bg-danger
+                                    {% elif result.treatment.severity == 'Moderate' %}bg-warning
+                                    {% else %}bg-success{% endif %} fs-6 px-3 py-2">
+                                    {{ result.treatment.severity }}
+                                </span>
+                                
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Consult with an agricultural expert for specific treatment plans.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row mb-5">
+            <div class="col-12 text-center">
+                <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-plus me-2"></i>Analyze Another Image
+                </a>
+                <a href="{{ url_for('history') }}" class="btn btn-outline-secondary btn-lg me-3">
+                    <i class="fas fa-history me-2"></i>View History
+                </a>
+                <button class="btn btn-outline-info btn-lg" onclick="downloadResults()">
+                    <i class="fas fa-download me-2"></i>Download Report
+                </button>
+            </div>
+        </div>
+
+        <!-- Technical Details (Collapsible) -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <button class="btn btn-link text-decoration-none" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#technicalDetails">
+                                <i class="fas fa-cog me-2"></i>Technical Details
+                                <i class="fas fa-chevron-down ms-2"></i>
+                            </button>
+                        </h6>
+                    </div>
+                    <div id="technicalDetails" class="collapse">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Processing Information</h6>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Model:</strong> {{ result.processing_info.model_used }}</li>
+                                        <li><strong>Device:</strong> {{ result.processing_info.device }}</li>
+                                        <li><strong>Processing Time:</strong> {{ "%.2f"|format(result.processing_time) }}s</li>
+                                        <li><strong>Background Removal:</strong> {{ 'Yes' if result.processing_info.background_removed else 'No' }}</li>
+                                        <li><strong>Explanation Method:</strong> {{ result.processing_info.explanation_method }}</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Analysis Details</h6>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Analysis ID:</strong> {{ result.analysis_id }}</li>
+                                        <li><strong>Timestamp:</strong> {{ moment().format('YYYY-MM-DD HH:mm:ss') }}</li>
+                                        <li><strong>GPU Accelerated:</strong> Yes</li>
+                                        <li><strong>Confidence Threshold:</strong> {{ "%.1f"|format(result.prediction.confidence * 100) }}%</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Download results functionality
+        function downloadResults() {
+            const results = {
+                prediction: {{ result.prediction | tojson }},
+                treatment: {{ result.treatment | tojson }},
+                processing_info: {{ result.processing_info | tojson }},
+                processing_time: {{ result.processing_time }},
+                analysis_id: {{ result.analysis_id }},
+                timestamp: new Date().toISOString()
+            };
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(results, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `mango_analysis_${results.analysis_id}.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        // Animate probability bars on load
+        document.addEventListener('DOMContentLoaded', function() {
+            const probabilityFills = document.querySelectorAll('.probability-fill');
+            probabilityFills.forEach((fill, index) => {
+                const width = fill.style.width;
+                fill.style.width = '0%';
+                setTimeout(() => {
+                    fill.style.width = width;
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>
