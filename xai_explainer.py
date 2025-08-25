@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import cv2
@@ -8,10 +9,28 @@ import matplotlib.cm as cm
 from io import BytesIO
 import base64
 import logging
-from typing import Dict, List, Tuple, Optional
+import time
+from typing import Dict, List, Tuple, Optional, Union
 from ml_models import get_transforms
 
-# Enhanced XAI imports
+# Enhanced XAI imports - PyTorch Grad-CAM
+try:
+    from pytorch_grad_cam import (
+        GradCAM, HiResCAM, ScoreCAM, GradCAMPlusPlus,
+        AblationCAM, XGradCAM, EigenCAM, EigenGradCAM,
+        LayerCAM, FullGrad, GradCAMElementWise
+    )
+    from pytorch_grad_cam import GuidedBackpropReLUModel
+    from pytorch_grad_cam.utils.image import (
+        show_cam_on_image, deprocess_image, preprocess_image
+    )
+    from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+    PYTORCH_GRADCAM_AVAILABLE = True
+except ImportError:
+    PYTORCH_GRADCAM_AVAILABLE = False
+    logging.warning("PyTorch Grad-CAM not available. Install with: pip install grad-cam")
+
+# Enhanced XAI imports - Captum
 try:
     from captum.attr import IntegratedGradients, GradCam, LayerGradCam
     from captum.attr import visualization as viz
@@ -29,10 +48,10 @@ except ImportError:
     LIME_AVAILABLE = False
     logging.warning("LIME not available. LIME explanations will be disabled.")
 
-class XAIExplainer:
+class ComprehensiveXAIExplainer:
     """
-    Enhanced Explainable AI methods for Mango Leaf Disease Detection
-    Supports GradCAM, Integrated Gradients, and LIME explanations
+    Comprehensive Explainable AI methods for Mango Leaf Disease Detection
+    Supports multiple CAM methods, Integrated Gradients, and LIME explanations
     """
     
     def __init__(self, model, class_names, device):
@@ -41,14 +60,52 @@ class XAIExplainer:
         self.device = device
         self.transforms = get_transforms()
         
-        # Hook for basic GradCAM
+        # Available CAM methods
+        self.cam_methods = {}
+        if PYTORCH_GRADCAM_AVAILABLE:
+            self.cam_methods.update({
+                'GradCAM': GradCAM,
+                'HiResCAM': HiResCAM,
+                'ScoreCAM': ScoreCAM,
+                'GradCAMPlusPlus': GradCAMPlusPlus,
+                'AblationCAM': AblationCAM,
+                'XGradCAM': XGradCAM,
+                'EigenCAM': EigenCAM,
+                'EigenGradCAM': EigenGradCAM,
+                'LayerCAM': LayerCAM,
+                'FullGrad': FullGrad,
+                'GradCAMElementWise': GradCAMElementWise
+            })
+        
+        # Hook for basic GradCAM (fallback)
         self.gradients = None
         self.activations = None
         
         # Register hooks on the last convolutional layer
-        self.target_layer = self.model.backbone.layer4[2].conv3
-        self.target_layer.register_forward_hook(self.save_activation)
-        self.target_layer.register_backward_hook(self.save_gradient)
+        try:
+            if hasattr(self.model, 'backbone'):
+                if hasattr(self.model.backbone, 'layer4'):
+                    self.target_layer = self.model.backbone.layer4[-1]
+                else:
+                    # Find the last conv layer
+                    conv_layers = []
+                    for module in self.model.modules():
+                        if isinstance(module, nn.Conv2d):
+                            conv_layers.append(module)
+                    self.target_layer = conv_layers[-1] if conv_layers else None
+            else:
+                conv_layers = []
+                for module in self.model.modules():
+                    if isinstance(module, nn.Conv2d):
+                        conv_layers.append(module)
+                self.target_layer = conv_layers[-1] if conv_layers else None
+                
+            if self.target_layer:
+                self.target_layer.register_forward_hook(self.save_activation)
+                self.target_layer.register_backward_hook(self.save_gradient)
+        except Exception as e:
+            logging.warning(f"Could not register hooks: {e}")
+            self.target_layer = None
         
         # Initialize enhanced XAI methods if available
         if CAPTUM_AVAILABLE:

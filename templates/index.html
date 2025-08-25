@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+
+{% block title %}Mango Leaf Disease Detection - AI-Powered Plant Health Analysis{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h1 class="display-3 mb-4">
+                <i class="fas fa-leaf text-success me-3"></i>
+                Mango Disease Detection
+            </h1>
+            <p class="lead text-muted mb-4">
+                Advanced AI-powered system for detecting diseases in mango leaves using state-of-the-art deep learning models
+            </p>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="d-flex justify-content-center flex-wrap gap-3">
+                        <span class="badge bg-success fs-6 px-3 py-2">
+                            <i class="fas fa-brain me-2"></i>Deep Learning
+                        </span>
+                        <span class="badge bg-info fs-6 px-3 py-2">
+                            <i class="fas fa-search-plus me-2"></i>Explainable AI
+                        </span>
+                        <span class="badge bg-warning fs-6 px-3 py-2">
+                            <i class="fas fa-balance-scale me-2"></i>Multi-Model
+                        </span>
+                        <span class="badge bg-primary fs-6 px-3 py-2">
+                            <i class="fas fa-chart-line me-2"></i>High Accuracy
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Analysis Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));">
+                    <h4 class="mb-0">
+                        <i class="fas fa-camera me-2"></i>Quick Disease Analysis
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <form action="{{ url_for('analyze') }}" method="post" enctype="multipart/form-data" id="quickAnalysisForm">
+                        <div class="row align-items-end">
+                            <div class="col-md-8">
+                                <label for="image" class="form-label fw-bold">
+                                    <i class="fas fa-image me-2"></i>Upload Mango Leaf Image
+                                </label>
+                                <input type="file" class="form-control form-control-lg" id="image" name="image" 
+                                       accept="image/*" required>
+                                <div class="form-text">
+                                    Supported formats: JPG, PNG, GIF, BMP (Max size: 50MB)
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary btn-lg w-100">
+                                    <i class="fas fa-search me-2"></i>Analyze Disease
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Image Preview -->
+                    <div id="imagePreview" class="mt-4" style="display: none;">
+                        <div class="text-center">
+                            <img id="previewImg" class="img-fluid rounded shadow" 
+                                 style="max-height: 300px;" alt="Preview">
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-outline-secondary" onclick="clearPreview()">
+                                    <i class="fas fa-times me-2"></i>Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Cards -->
+    <div class="row mb-5">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow">
+                <div class="card-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="fas fa-search-plus fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Explainable AI</h5>
+                    <p class="card-text text-muted">
+                        Understand how AI makes decisions with comprehensive explainability methods including GradCAM, LIME, and Integrated Gradients.
+                    </p>
+                    <a href="{{ url_for('explainability') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-right me-2"></i>Explore XAI
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow">
+                <div class="card-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="fas fa-balance-scale fa-3x text-success"></i>
+                    </div>
+                    <h5 class="card-title">Model Comparison</h5>
+                    <p class="card-text text-muted">
+                        Compare predictions across multiple AI models including ResNet, EfficientNet, and Vision Transformers for comprehensive analysis.
+                    </p>
+                    <a href="{{ url_for('model_comparison') }}" class="btn btn-outline-success">
+                        <i class="fas fa-arrow-right me-2"></i>Compare Models
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow">
+                <div class="card-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="fas fa-images fa-3x text-info"></i>
+                    </div>
+                    <h5 class="card-title">Batch Processing</h5>
+                    <p class="card-text text-muted">
+                        Analyze multiple images simultaneously for efficient large-scale disease detection and monitoring.
+                    </p>
+                    <a href="{{ url_for('batch') }}" class="btn btn-outline-info">
+                        <i class="fas fa-arrow-right me-2"></i>Batch Analyze
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disease Information -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow">
+                <div class="card-header">
+                    <h4><i class="fas fa-microscope me-2"></i>Detectable Diseases</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="disease-item mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="disease-icon bg-danger text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-circle"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Anthracnose</h6>
+                                        <small class="text-muted">Fungal disease causing dark spots on leaves and fruits</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="disease-item mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="disease-icon bg-warning text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-bacteria"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Bacterial Canker</h6>
+                                        <small class="text-muted">Bacterial infection affecting stems and branches</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="disease-item mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="disease-icon bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-bug"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Cutting Weevil</h6>
+                                        <small class="text-muted">Insect damage causing characteristic cuts in leaves</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="disease-item mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="disease-icon bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-skull-crossbones"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Die Back</h6>
+                                        <small class="text-muted">Progressive death of branches from tip backwards</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="disease-item mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="disease-icon bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-dot-circle"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Gall Midge</h6>
+                                        <small class="text-muted">Insect-induced galls on leaves and shoots</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="disease-item mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="disease-icon bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Healthy</h6>
+                                        <small class="text-muted">No disease detected - healthy leaf tissue</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="disease-item mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="disease-icon bg-light text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-cloud"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Powdery Mildew</h6>
+                                        <small class="text-muted">White powdery fungal growth on leaf surfaces</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="disease-item mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="disease-icon bg-dark text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-smog"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Sooty Mould</h6>
+                                        <small class="text-muted">Black fungal coating on leaf surfaces</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Dashboard -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow">
+                <div class="card-header">
+                    <h4><i class="fas fa-chart-bar me-2"></i>System Statistics</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-item">
+                                <h3 class="text-primary mb-2" id="totalAnalyses">-</h3>
+                                <p class="text-muted mb-0">Total Analyses</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-item">
+                                <h3 class="text-success mb-2" id="batchProcesses">-</h3>
+                                <p class="text-muted mb-0">Batch Processes</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-item">
+                                <h3 class="text-info mb-2" id="availableModels">-</h3>
+                                <p class="text-muted mb-0">AI Models</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-item">
+                                <h3 class="text-warning mb-2" id="avgAccuracy">-</h3>
+                                <p class="text-muted mb-0">Average Accuracy</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Disease Distribution Chart -->
+                    <div class="mt-4">
+                        <h6>Disease Distribution</h6>
+                        <canvas id="diseaseChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4><i class="fas fa-history me-2"></i>Recent Activity</h4>
+                    <a href="{{ url_for('history') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye me-2"></i>View All
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div id="recentActivity">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading recent activity...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let diseaseChart = null;
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    setupImagePreview();
+    loadStatistics();
+    loadRecentActivity();
+});
+
+// Setup image preview
+function setupImagePreview() {
+    const imageInput = document.getElementById('image');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+
+    imageInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                imagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            imagePreview.style.display = 'none';
+        }
+    });
+}
+
+// Load system statistics
+function loadStatistics() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('totalAnalyses').textContent = data.total_analyses.toLocaleString();
+            document.getElementById('batchProcesses').textContent = data.batch_processes.toLocaleString();
+            
+            // Load model statistics
+            fetch('/api/models')
+                .then(response => response.json())
+                .then(modelData => {
+                    document.getElementById('availableModels').textContent = modelData.models.length;
+                    const avgAcc = modelData.models.reduce((sum, model) => sum + model.accuracy, 0) / modelData.models.length;
+                    document.getElementById('avgAccuracy').textContent = (avgAcc * 100).toFixed(1) + '%';
+                })
+                .catch(error => {
+                    console.error('Error loading model stats:', error);
+                    document.getElementById('availableModels').textContent = '?';
+                    document.getElementById('avgAccuracy').textContent = '?';
+                });
+            
+            // Create disease distribution chart
+            createDiseaseChart(data.disease_distribution);
+        })
+        .catch(error => {
+            console.error('Error loading statistics:', error);
+            document.getElementById('totalAnalyses').textContent = '?';
+            document.getElementById('batchProcesses').textContent = '?';
+        });
+}
+
+// Create disease distribution chart
+function createDiseaseChart(diseaseData) {
+    const ctx = document.getElementById('diseaseChart').getContext('2d');
+    
+    if (diseaseChart) {
+        diseaseChart.destroy();
+    }
+    
+    const labels = Object.keys(diseaseData);
+    const data = Object.values(diseaseData);
+    
+    diseaseChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Number of Cases',
+                data: data,
+                backgroundColor: [
+                    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+                    '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'
+                ],
+                borderColor: [
+                    '#FF5252', '#26A69A', '#2196F3', '#66BB6A',
+                    '#FFCA28', '#BA68C8', '#4DB6AC', '#FFD54F'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Load recent activity
+function loadRecentActivity() {
+    fetch('/api/recent_activity')
+        .then(response => response.json())
+        .then(data => {
+            displayRecentActivity(data.activities || []);
+        })
+        .catch(error => {
+            console.error('Error loading recent activity:', error);
+            document.getElementById('recentActivity').innerHTML = 
+                '<div class="alert alert-warning">Unable to load recent activity</div>';
+        });
+}
+
+// Display recent activity
+function displayRecentActivity(activities) {
+    const container = document.getElementById('recentActivity');
+    
+    if (activities.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted">No recent activity</div>';
+        return;
+    }
+    
+    const activityHtml = activities.slice(0, 5).map(activity => `
+        <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
+            <div class="me-3">
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                     style="width: 40px; height: 40px;">
+                    <i class="fas fa-${activity.type === 'analysis' ? 'search' : 'images'}"></i>
+                </div>
+            </div>
+            <div class="flex-grow-1">
+                <h6 class="mb-1">${activity.title}</h6>
+                <small class="text-muted">${activity.description}</small>
+            </div>
+            <div class="text-end">
+                <small class="text-muted">${activity.time}</small>
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = activityHtml;
+}
+
+// Clear image preview
+function clearPreview() {
+    document.getElementById('image').value = '';
+    document.getElementById('imagePreview').style.display = 'none';
+}
+
+// Form submission with loading state
+document.getElementById('quickAnalysisForm').addEventListener('submit', function(e) {
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Analyzing...';
+    submitBtn.disabled = true;
+    
+    // Note: The form will submit normally, but we show loading state
+    setTimeout(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }, 2000);
+});
+</script>
+{% endblock %}

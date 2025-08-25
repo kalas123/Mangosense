@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Analysis - Mango Disease Detection{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Header -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-images text-primary me-3"></i>
+                Batch Analysis
+            </h1>
+            <p class="lead text-muted">
+                Analyze multiple mango leaf images simultaneously for efficient disease detection
+            </p>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));">
+                    <h4 class="mb-0">
+                        <i class="fas fa-cloud-upload-alt me-2"></i>Upload Multiple Images
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <form action="{{ url_for('batch_analyze') }}" method="post" enctype="multipart/form-data" id="batchForm">
+                        <div class="upload-zone" id="batchUploadZone">
+                            <div class="text-center p-5">
+                                <i class="fas fa-images fa-4x text-primary mb-3"></i>
+                                <h5>Drop multiple images here or click to browse</h5>
+                                <p class="text-muted mb-3">
+                                    Select multiple mango leaf images for batch analysis<br>
+                                    Supported formats: JPG, PNG, GIF, BMP (Max 50MB per file)
+                                </p>
+                                <input type="file" id="batchImages" name="images" multiple accept="image/*" class="d-none">
+                                <button type="button" class="btn btn-primary btn-lg" onclick="document.getElementById('batchImages').click()">
+                                    <i class="fas fa-folder-open me-2"></i>Choose Images
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Images Preview -->
+                        <div id="selectedImagesPreview" class="mt-4" style="display: none;">
+                            <h6>Selected Images:</h6>
+                            <div id="imagesList" class="row">
+                                <!-- Selected images will be displayed here -->
+                            </div>
+                            <div class="text-center mt-3">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="fas fa-play me-2"></i>Start Batch Analysis
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-lg ms-2" onclick="clearSelection()">
+                                    <i class="fas fa-times me-2"></i>Clear Selection
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    {% if results %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4><i class="fas fa-chart-bar me-2"></i>Batch Analysis Results</h4>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-primary fs-6">
+                                Batch ID: {{ batch_id }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Summary Statistics -->
+                    <div class="row mb-4">
+                        <div class="col-md-3 text-center">
+                            <h3 class="text-primary">{{ results|length }}</h3>
+                            <p class="text-muted mb-0">Total Images</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3 class="text-success">{{ results | selectattr('success') | list | length }}</h3>
+                            <p class="text-muted mb-0">Successful</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3 class="text-danger">{{ results | rejectattr('success') | list | length }}</h3>
+                            <p class="text-muted mb-0">Failed</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            {% set healthy_count = results | selectattr('success') | selectattr('result.predicted_class', 'equalto', 'Healthy') | list | length %}
+                            <h3 class="text-info">{{ healthy_count }}</h3>
+                            <p class="text-muted mb-0">Healthy</p>
+                        </div>
+                    </div>
+
+                    <!-- Disease Distribution Chart -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6>Disease Distribution</h6>
+                            <canvas id="batchResultsChart" height="100"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Image</th>
+                                    <th>Filename</th>
+                                    <th>Status</th>
+                                    <th>Predicted Disease</th>
+                                    <th>Confidence</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in results %}
+                                <tr class="{% if result.success %}table-success{% else %}table-danger{% endif %}">
+                                    <td>
+                                        <div style="width: 60px; height: 60px; overflow: hidden; border-radius: 8px;">
+                                            {% if result.success %}
+                                                <div class="bg-light d-flex align-items-center justify-content-center h-100">
+                                                    <i class="fas fa-image text-muted"></i>
+                                                </div>
+                                            {% else %}
+                                                <div class="bg-danger d-flex align-items-center justify-content-center h-100">
+                                                    <i class="fas fa-exclamation-triangle text-white"></i>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <strong>{{ result.filename }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if result.success %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Success
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times me-1"></i>Failed
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.success %}
+                                            <span class="badge {% if result.result.predicted_class == 'Healthy' %}bg-success{% else %}bg-warning{% endif %}">
+                                                {{ result.result.predicted_class.replace('_', ' ') }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.success %}
+                                            <div class="progress" style="height: 20px; width: 100px;">
+                                                <div class="progress-bar" style="width: {{ result.result.confidence * 100 }}%">
+                                                    {{ "%.1f"|format(result.result.confidence * 100) }}%
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.success %}
+                                            <button class="btn btn-sm btn-outline-primary" onclick="viewDetails('{{ result.filename }}')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-danger" onclick="showError('{{ result.filename }}', '{{ result.error }}')">
+                                                <i class="fas fa-info-circle"></i>
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Export Options -->
+                    <div class="text-center mt-4">
+                        <button class="btn btn-outline-primary" onclick="exportResults()">
+                            <i class="fas fa-download me-2"></i>Export Results
+                        </button>
+                        <button class="btn btn-outline-info ms-2" onclick="generateReport()">
+                            <i class="fas fa-file-alt me-2"></i>Generate Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Analysis Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Details will be populated here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let batchChart = null;
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    setupBatchUpload();
+    {% if results %}
+        createBatchChart();
+    {% endif %}
+});
+
+// Setup batch upload functionality
+function setupBatchUpload() {
+    const uploadZone = document.getElementById('batchUploadZone');
+    const imagesInput = document.getElementById('batchImages');
+    const previewSection = document.getElementById('selectedImagesPreview');
+    const imagesList = document.getElementById('imagesList');
+
+    // Drag and drop functionality
+    uploadZone.addEventListener('dragover', handleDragOver);
+    uploadZone.addEventListener('dragleave', handleDragLeave);
+    uploadZone.addEventListener('drop', handleDrop);
+    imagesInput.addEventListener('change', handleImageSelect);
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        uploadZone.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+        uploadZone.style.borderColor = 'var(--primary-color)';
+    }
+
+    function handleDragLeave(e) {
+        e.preventDefault();
+        uploadZone.style.backgroundColor = '';
+        uploadZone.style.borderColor = '';
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        uploadZone.style.backgroundColor = '';
+        uploadZone.style.borderColor = '';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            imagesInput.files = files;
+            handleImageSelect();
+        }
+    }
+
+    function handleImageSelect() {
+        const files = imagesInput.files;
+        if (files.length > 0) {
+            displaySelectedImages(files);
+            previewSection.style.display = 'block';
+        }
+    }
+}
+
+// Display selected images
+function displaySelectedImages(files) {
+    const imagesList = document.getElementById('imagesList');
+    imagesList.innerHTML = '';
+
+    Array.from(files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const col = document.createElement('div');
+            col.className = 'col-md-3 col-sm-4 col-6 mb-3';
+            col.innerHTML = `
+                <div class="card">
+                    <img src="${e.target.result}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                    <div class="card-body p-2">
+                        <small class="text-muted">${file.name}</small>
+                        <br>
+                        <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                    </div>
+                </div>
+            `;
+            imagesList.appendChild(col);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Clear selection
+function clearSelection() {
+    document.getElementById('batchImages').value = '';
+    document.getElementById('selectedImagesPreview').style.display = 'none';
+}
+
+// Create batch results chart
+function createBatchChart() {
+    const ctx = document.getElementById('batchResultsChart');
+    if (!ctx) return;
+    
+    // Count diseases from results
+    const diseaseCount = {};
+    {% for result in results %}
+        {% if result.success %}
+            const disease = '{{ result.result.predicted_class.replace("_", " ") }}';
+            diseaseCount[disease] = (diseaseCount[disease] || 0) + 1;
+        {% endif %}
+    {% endfor %}
+
+    const labels = Object.keys(diseaseCount);
+    const data = Object.values(diseaseCount);
+
+    batchChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    '#4CAF50', '#2196F3', '#FF9800', '#F44336',
+                    '#9C27B0', '#00BCD4', '#FFEB3B', '#795548'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+// View details for a specific result
+function viewDetails(filename) {
+    // Find the result for this filename
+    {% if results %}
+        const results = {{ results | tojson }};
+        const result = results.find(r => r.filename === filename);
+        
+        if (result && result.success) {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Prediction Details</h6>
+                        <p><strong>Disease:</strong> ${result.result.predicted_class.replace('_', ' ')}</p>
+                        <p><strong>Confidence:</strong> ${(result.result.confidence * 100).toFixed(2)}%</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>All Probabilities</h6>
+                        ${Object.entries(result.result.all_probabilities).map(([disease, prob]) => `
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>${disease.replace('_', ' ')}</span>
+                                    <span>${(prob * 100).toFixed(2)}%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar" style="width: ${prob * 100}%"></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            
+            new bootstrap.Modal(document.getElementById('detailsModal')).show();
+        }
+    {% endif %}
+}
+
+// Show error details
+function showError(filename, error) {
+    const modalBody = document.getElementById('modalBody');
+    modalBody.innerHTML = `
+        <div class="alert alert-danger">
+            <h6>Error Processing: ${filename}</h6>
+            <p>${error}</p>
+        </div>
+    `;
+    
+    new bootstrap.Modal(document.getElementById('detailsModal')).show();
+}
+
+// Export results
+function exportResults() {
+    {% if results %}
+        const results = {{ results | tojson }};
+        const csv = generateCSV(results);
+        downloadCSV(csv, 'batch_analysis_results.csv');
+    {% endif %}
+}
+
+// Generate CSV from results
+function generateCSV(results) {
+    const headers = ['Filename', 'Status', 'Predicted Disease', 'Confidence', 'Error'];
+    const rows = results.map(result => [
+        result.filename,
+        result.success ? 'Success' : 'Failed',
+        result.success ? result.result.predicted_class.replace('_', ' ') : '',
+        result.success ? (result.result.confidence * 100).toFixed(2) + '%' : '',
+        result.success ? '' : result.error
+    ]);
+    
+    return [headers, ...rows].map(row => 
+        row.map(field => `"${field}"`).join(',')
+    ).join('\n');
+}
+
+// Download CSV file
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', filename);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Generate report
+function generateReport() {
+    alert('Report generation feature coming soon!');
+}
+
+// Form submission with progress
+document.getElementById('batchForm').addEventListener('submit', function(e) {
+    const files = document.getElementById('batchImages').files;
+    if (files.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one image for batch analysis.');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+    submitBtn.disabled = true;
+});
+</script>
+{% endblock %}
