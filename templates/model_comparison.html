@@ -1,0 +1,740 @@
+{% extends "base.html" %}
+
+{% block title %}Model Comparison - Mango Disease Detection{% endblock %}
+
+{% block extra_head %}
+<style>
+    .model-performance-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .model-performance-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .model-performance-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    }
+    
+    .accuracy-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.1rem;
+        margin: 0 auto 1rem;
+    }
+    
+    .accuracy-high { background: linear-gradient(135deg, #4CAF50, #8BC34A); color: white; }
+    .accuracy-medium { background: linear-gradient(135deg, #FF9800, #FFC107); color: white; }
+    .accuracy-low { background: linear-gradient(135deg, #F44336, #FF5722); color: white; }
+    
+    .comparison-chart {
+        height: 400px;
+        margin: 2rem 0;
+    }
+    
+    .prediction-comparison {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin: 2rem 0;
+    }
+    
+    .consensus-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 500;
+        margin-left: 1rem;
+    }
+    
+    .consensus-high { background-color: #E8F5E8; color: var(--primary-color); }
+    .consensus-medium { background-color: #FFF3E0; color: #E65100; }
+    .consensus-low { background-color: #FFEBEE; color: #C62828; }
+    
+    .model-details {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .performance-meter {
+        height: 8px;
+        background-color: #E0E0E0;
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 0.5rem 0;
+    }
+    
+    .performance-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+        border-radius: 4px;
+        transition: width 0.8s ease;
+    }
+    
+    .upload-section {
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(139, 195, 74, 0.1));
+        border-radius: 20px;
+        padding: 3rem;
+        margin-bottom: 3rem;
+        text-align: center;
+    }
+    
+    .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin: 2rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Header -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-balance-scale text-primary me-3"></i>
+                Model Comparison
+            </h1>
+            <p class="lead text-muted">
+                Compare performance across multiple AI models for comprehensive disease diagnosis
+            </p>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="upload-section">
+        <i class="fas fa-images fa-3x text-primary mb-3"></i>
+        <h4>Upload Image for Model Comparison</h4>
+        <p class="text-muted mb-4">Compare how different models analyze the same mango leaf image</p>
+        
+        <form id="comparisonForm" enctype="multipart/form-data">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <input type="file" class="form-control" id="comparisonImage" name="image" accept="image/*" required>
+                        <button class="btn btn-primary" type="submit" id="compareBtn">
+                            <i class="fas fa-search me-2"></i>Compare Models
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+        
+        <!-- Image Preview -->
+        <div id="imagePreviewSection" class="mt-4" style="display: none;">
+            <img id="previewImage" class="img-fluid" style="max-height: 300px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        </div>
+    </div>
+
+    <!-- Model Overview -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-chart-bar me-2"></i>Available Models Overview</h4>
+                </div>
+                <div class="card-body">
+                    <div id="modelOverviewLoading" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading models...</span>
+                        </div>
+                        <p class="mt-2">Loading model information...</p>
+                    </div>
+                    
+                    <div id="modelOverview" style="display: none;">
+                        <div class="comparison-grid" id="modelCards">
+                            <!-- Model cards will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Results -->
+    <div id="comparisonResults" style="display: none;">
+        <!-- Prediction Summary -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4><i class="fas fa-trophy me-2"></i>Prediction Results</h4>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div id="consensusPrediction">
+                            <!-- Consensus prediction will be populated -->
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div id="consensusIndicator">
+                            <!-- Consensus indicator will be populated -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Comparison Table -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4><i class="fas fa-table me-2"></i>Detailed Model Comparison</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="comparisonTable">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Model</th>
+                                <th>Architecture</th>
+                                <th>Prediction</th>
+                                <th>Confidence</th>
+                                <th>Model Accuracy</th>
+                                <th>File Size</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparisonTableBody">
+                            <!-- Comparison results will be populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Charts -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-pie me-2"></i>Confidence Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="confidenceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-bar me-2"></i>Model Performance</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prediction Details -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4><i class="fas fa-list-alt me-2"></i>All Class Probabilities</h4>
+            </div>
+            <div class="card-body">
+                <div id="probabilityBreakdown">
+                    <!-- Probability breakdown will be populated -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Options -->
+        <div class="text-center mt-4">
+            <button type="button" class="btn btn-outline-primary" onclick="exportComparison()">
+                <i class="fas fa-download me-2"></i>Export Comparison
+            </button>
+            <button type="button" class="btn btn-outline-info" onclick="shareResults()">
+                <i class="fas fa-share-alt me-2"></i>Share Results
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="resetComparison()">
+                <i class="fas fa-redo me-2"></i>New Comparison
+            </button>
+        </div>
+    </div>
+
+    <!-- Model Statistics -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-chart-line me-2"></i>Model Performance Statistics</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <h3 class="text-primary" id="totalModels">-</h3>
+                            <p class="text-muted">Total Models</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3 class="text-success" id="avgAccuracy">-</h3>
+                            <p class="text-muted">Average Accuracy</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3 class="text-info" id="bestModel">-</h3>
+                            <p class="text-muted">Best Model</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3 class="text-warning" id="totalSize">-</h3>
+                            <p class="text-muted">Total Size (MB)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let availableModels = [];
+let comparisonData = null;
+let confidenceChart = null;
+let performanceChart = null;
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadModelOverview();
+    setupImageUpload();
+    setupForm();
+});
+
+// Setup image upload preview
+function setupImageUpload() {
+    const imageInput = document.getElementById('comparisonImage');
+    const previewSection = document.getElementById('imagePreviewSection');
+    const previewImage = document.getElementById('previewImage');
+
+    imageInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                previewSection.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            previewSection.style.display = 'none';
+        }
+    });
+}
+
+// Setup form submission
+function setupForm() {
+    const form = document.getElementById('comparisonForm');
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        startComparison();
+    });
+}
+
+// Load model overview
+function loadModelOverview() {
+    fetch('/api/models')
+        .then(response => response.json())
+        .then(data => {
+            availableModels = data.models;
+            displayModelOverview(data.models);
+            updateStatistics(data.models);
+            
+            document.getElementById('modelOverviewLoading').style.display = 'none';
+            document.getElementById('modelOverview').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error loading models:', error);
+            document.getElementById('modelOverviewLoading').innerHTML = 
+                '<div class="alert alert-danger">Error loading model information</div>';
+        });
+}
+
+// Display model overview cards
+function displayModelOverview(models) {
+    const modelCards = document.getElementById('modelCards');
+    modelCards.innerHTML = '';
+
+    models.forEach((model, index) => {
+        const accuracyClass = model.accuracy > 0.9 ? 'accuracy-high' : 
+                            model.accuracy > 0.8 ? 'accuracy-medium' : 'accuracy-low';
+        
+        const card = document.createElement('div');
+        card.innerHTML = `
+            <div class="card model-performance-card h-100">
+                <div class="card-body text-center">
+                    <div class="accuracy-circle ${accuracyClass}">
+                        ${(model.accuracy * 100).toFixed(1)}%
+                    </div>
+                    <h5 class="card-title">${model.architecture}</h5>
+                    <div class="model-details">
+                        <p class="mb-1"><strong>File:</strong> ${model.file_name}</p>
+                        <p class="mb-1"><strong>Size:</strong> ${model.file_size_mb.toFixed(1)} MB</p>
+                        <p class="mb-1"><strong>Modified:</strong> ${model.modified_time}</p>
+                        <p class="mb-0"><strong>Status:</strong> 
+                            <span class="badge ${model.is_loaded ? 'bg-success' : 'bg-secondary'}">
+                                ${model.is_loaded ? 'Loaded' : 'Available'}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="performance-meter mt-3">
+                        <div class="performance-fill" style="width: ${model.accuracy * 100}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        modelCards.appendChild(card);
+    });
+}
+
+// Update statistics
+function updateStatistics(models) {
+    const totalModels = models.length;
+    const avgAccuracy = models.reduce((sum, model) => sum + model.accuracy, 0) / totalModels;
+    const bestModel = models.reduce((best, model) => model.accuracy > best.accuracy ? model : best);
+    const totalSize = models.reduce((sum, model) => sum + model.file_size_mb, 0);
+
+    document.getElementById('totalModels').textContent = totalModels;
+    document.getElementById('avgAccuracy').textContent = (avgAccuracy * 100).toFixed(1) + '%';
+    document.getElementById('bestModel').textContent = bestModel.architecture;
+    document.getElementById('totalSize').textContent = totalSize.toFixed(1);
+}
+
+// Start model comparison
+function startComparison() {
+    const formData = new FormData();
+    const imageFile = document.getElementById('comparisonImage').files[0];
+    
+    if (!imageFile) {
+        alert('Please select an image for comparison');
+        return;
+    }
+    
+    formData.append('image', imageFile);
+    
+    // Show loading state
+    const compareBtn = document.getElementById('compareBtn');
+    const originalText = compareBtn.innerHTML;
+    compareBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Comparing...';
+    compareBtn.disabled = true;
+    
+    fetch('/api/model_comparison', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        comparisonData = data;
+        displayComparisonResults(data);
+        document.getElementById('comparisonResults').style.display = 'block';
+        
+        // Scroll to results
+        document.getElementById('comparisonResults').scrollIntoView({ behavior: 'smooth' });
+    })
+    .catch(error => {
+        console.error('Comparison error:', error);
+        alert('Comparison failed: ' + error.message);
+    })
+    .finally(() => {
+        compareBtn.innerHTML = originalText;
+        compareBtn.disabled = false;
+    });
+}
+
+// Display comparison results
+function displayComparisonResults(data) {
+    displayConsensusPrediction(data.results);
+    displayComparisonTable(data.results);
+    displayCharts(data.results);
+    displayProbabilityBreakdown(data.results);
+}
+
+// Display consensus prediction
+function displayConsensusPrediction(results) {
+    const predictions = results.map(r => r.predicted_class);
+    const predictionCounts = {};
+    
+    predictions.forEach(pred => {
+        predictionCounts[pred] = (predictionCounts[pred] || 0) + 1;
+    });
+    
+    const consensus = Object.keys(predictionCounts).reduce((a, b) => 
+        predictionCounts[a] > predictionCounts[b] ? a : b
+    );
+    
+    const consensusCount = predictionCounts[consensus];
+    const consensusPercent = (consensusCount / results.length * 100).toFixed(1);
+    
+    const consensusClass = consensusPercent > 80 ? 'consensus-high' : 
+                          consensusPercent > 60 ? 'consensus-medium' : 'consensus-low';
+    
+    document.getElementById('consensusPrediction').innerHTML = `
+        <h4>Consensus Prediction: <strong class="text-primary">${consensus}</strong></h4>
+        <p class="text-muted mb-0">${consensusCount} out of ${results.length} models agree</p>
+    `;
+    
+    document.getElementById('consensusIndicator').innerHTML = `
+        <div class="consensus-indicator ${consensusClass}">
+            <i class="fas fa-check-circle me-2"></i>
+            ${consensusPercent}% Agreement
+        </div>
+    `;
+}
+
+// Display comparison table
+function displayComparisonTable(results) {
+    const tableBody = document.getElementById('comparisonTableBody');
+    tableBody.innerHTML = '';
+    
+    // Sort by confidence
+    const sortedResults = [...results].sort((a, b) => b.confidence - a.confidence);
+    
+    sortedResults.forEach((result, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <span class="badge ${index < 3 ? 'bg-warning' : 'bg-secondary'}">
+                    #${index + 1}
+                </span>
+            </td>
+            <td><strong>${result.model_file}</strong></td>
+            <td>
+                <span class="badge bg-info">${result.architecture}</span>
+            </td>
+            <td>
+                <strong class="${result.predicted_class === sortedResults[0].predicted_class ? 'text-success' : 'text-muted'}">
+                    ${result.predicted_class}
+                </strong>
+            </td>
+            <td>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" style="width: ${result.confidence * 100}%"></div>
+                </div>
+                <small>${(result.confidence * 100).toFixed(1)}%</small>
+            </td>
+            <td>${(result.model_accuracy * 100).toFixed(1)}%</td>
+            <td>${result.file_size_mb.toFixed(1)} MB</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="viewModelDetails('${result.model_file}')">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+// Display charts
+function displayCharts(results) {
+    displayConfidenceChart(results);
+    displayPerformanceChart(results);
+}
+
+function displayConfidenceChart(results) {
+    const ctx = document.getElementById('confidenceChart').getContext('2d');
+    
+    if (confidenceChart) {
+        confidenceChart.destroy();
+    }
+    
+    confidenceChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: results.map(r => r.architecture),
+            datasets: [{
+                data: results.map(r => r.confidence * 100),
+                backgroundColor: [
+                    '#2E7D32', '#4CAF50', '#8BC34A', '#CDDC39',
+                    '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function displayPerformanceChart(results) {
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    
+    if (performanceChart) {
+        performanceChart.destroy();
+    }
+    
+    performanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: results.map(r => r.architecture),
+            datasets: [
+                {
+                    label: 'Prediction Confidence',
+                    data: results.map(r => r.confidence * 100),
+                    backgroundColor: '#4CAF50',
+                    borderColor: '#2E7D32',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Model Accuracy',
+                    data: results.map(r => r.model_accuracy * 100),
+                    backgroundColor: '#8BC34A',
+                    borderColor: '#689F38',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Display probability breakdown
+function displayProbabilityBreakdown(results) {
+    const breakdown = document.getElementById('probabilityBreakdown');
+    breakdown.innerHTML = '';
+    
+    // Get all class names from the first result
+    const classNames = Object.keys(results[0].all_probabilities);
+    
+    classNames.forEach(className => {
+        const classDiv = document.createElement('div');
+        classDiv.className = 'mb-4';
+        
+        const probabilities = results.map(r => r.all_probabilities[className] * 100);
+        const avgProb = probabilities.reduce((a, b) => a + b, 0) / probabilities.length;
+        
+        classDiv.innerHTML = `
+            <h6>${className} <small class="text-muted">(avg: ${avgProb.toFixed(1)}%)</small></h6>
+            <div class="row">
+                ${results.map((result, index) => `
+                    <div class="col-md-3 mb-2">
+                        <div class="card">
+                            <div class="card-body p-2 text-center">
+                                <small class="text-muted">${result.architecture}</small>
+                                <div class="progress mt-1" style="height: 6px;">
+                                    <div class="progress-bar" style="width: ${result.all_probabilities[className] * 100}%"></div>
+                                </div>
+                                <small>${(result.all_probabilities[className] * 100).toFixed(1)}%</small>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        breakdown.appendChild(classDiv);
+    });
+}
+
+// Utility functions
+function viewModelDetails(modelFile) {
+    const model = availableModels.find(m => m.file_name === modelFile);
+    if (model) {
+        alert(`Model Details:\n\nFile: ${model.file_name}\nArchitecture: ${model.architecture}\nAccuracy: ${(model.accuracy * 100).toFixed(2)}%\nSize: ${model.file_size_mb.toFixed(1)} MB\nModified: ${model.modified_time}`);
+    }
+}
+
+function exportComparison() {
+    if (!comparisonData) return;
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(comparisonData, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "model_comparison_results.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function shareResults() {
+    if (navigator.share && comparisonData) {
+        navigator.share({
+            title: 'Mango Disease Detection - Model Comparison',
+            text: `Model comparison results: ${comparisonData.results.length} models analyzed`,
+            url: window.location.href
+        });
+    } else {
+        // Fallback to copying URL
+        navigator.clipboard.writeText(window.location.href);
+        alert('Results URL copied to clipboard!');
+    }
+}
+
+function resetComparison() {
+    document.getElementById('comparisonForm').reset();
+    document.getElementById('imagePreviewSection').style.display = 'none';
+    document.getElementById('comparisonResults').style.display = 'none';
+    comparisonData = null;
+    
+    if (confidenceChart) {
+        confidenceChart.destroy();
+        confidenceChart = null;
+    }
+    
+    if (performanceChart) {
+        performanceChart.destroy();
+        performanceChart = null;
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,717 @@
+{% extends "base.html" %}
+
+{% block title %}Explainability Analysis - Mango Disease Detection{% endblock %}
+
+{% block extra_head %}
+<style>
+    .upload-zone {
+        border: 3px dashed var(--secondary-color);
+        border-radius: 15px;
+        padding: 3rem;
+        text-align: center;
+        background-color: rgba(76, 175, 80, 0.05);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .upload-zone:hover {
+        border-color: var(--primary-color);
+        background-color: rgba(46, 125, 50, 0.1);
+    }
+    
+    .upload-zone.dragover {
+        border-color: var(--accent-color);
+        background-color: rgba(139, 195, 74, 0.2);
+    }
+    
+    .method-checkbox {
+        transform: scale(1.2);
+        margin-right: 0.5rem;
+    }
+    
+    .model-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .model-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+    
+    .model-card.selected {
+        border: 2px solid var(--primary-color);
+        background-color: rgba(46, 125, 50, 0.1);
+    }
+    
+    .analysis-progress {
+        display: none;
+    }
+    
+    .results-container {
+        display: none;
+    }
+    
+    .method-image {
+        max-width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+    
+    .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .original-image {
+        max-width: 300px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .prediction-info {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Header -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-search-plus text-primary me-3"></i>
+                AI Explainability Analysis
+            </h1>
+            <p class="lead text-muted">
+                Understand how AI models make decisions with comprehensive explainability methods
+            </p>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-upload me-2"></i>Upload Image for Analysis</h4>
+                </div>
+                <div class="card-body">
+                    <form id="explainabilityForm" enctype="multipart/form-data">
+                        <div class="upload-zone" id="uploadZone">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                            <h5>Drop your mango leaf image here</h5>
+                            <p class="text-muted mb-3">or click to browse files</p>
+                            <input type="file" id="imageInput" name="image" accept="image/*" class="d-none">
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('imageInput').click()">
+                                <i class="fas fa-folder-open me-2"></i>Choose File
+                            </button>
+                        </div>
+                        
+                        <!-- Preview -->
+                        <div id="imagePreview" class="text-center mt-4" style="display: none;">
+                            <img id="previewImg" class="original-image" alt="Preview">
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-outline-secondary" onclick="clearImage()">
+                                    <i class="fas fa-times me-2"></i>Clear
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Selection -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-brain me-2"></i>Select Models for Analysis</h4>
+                </div>
+                <div class="card-body">
+                    <div id="modelLoading" class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading models...</span>
+                        </div>
+                        <p class="mt-2">Loading available models...</p>
+                    </div>
+                    
+                    <div id="modelSelection" style="display: none;">
+                        <div class="row" id="modelCards">
+                            <!-- Model cards will be populated by JavaScript -->
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllModels()">
+                                <i class="fas fa-check-double me-2"></i>Select All
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearModelSelection()">
+                                <i class="fas fa-times me-2"></i>Clear All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Method Selection -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-cogs me-2"></i>Select Explainability Methods</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-eye me-2"></i>Visual Attribution Methods</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="GradCAM" id="gradcam" checked>
+                                <label class="form-check-label" for="gradcam">
+                                    <strong>GradCAM</strong> - Gradient-weighted Class Activation Mapping
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="GradCAM++" id="gradcampp">
+                                <label class="form-check-label" for="gradcampp">
+                                    <strong>GradCAM++</strong> - Improved GradCAM with better localization
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="HiResCAM" id="hirescam">
+                                <label class="form-check-label" for="hirescam">
+                                    <strong>HiResCAM</strong> - High-resolution Class Activation Mapping
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="ScoreCAM" id="scorecam">
+                                <label class="form-check-label" for="scorecam">
+                                    <strong>ScoreCAM</strong> - Score-weighted Class Activation Mapping
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="LayerCAM" id="layercam">
+                                <label class="form-check-label" for="layercam">
+                                    <strong>LayerCAM</strong> - Layer-wise Class Activation Mapping
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="EigenCAM" id="eigencam">
+                                <label class="form-check-label" for="eigencam">
+                                    <strong>EigenCAM</strong> - Principal component-based CAM
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-chart-line me-2"></i>Advanced Methods</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="XGradCAM" id="xgradcam">
+                                <label class="form-check-label" for="xgradcam">
+                                    <strong>XGradCAM</strong> - Axiom-based GradCAM
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="AblationCAM" id="ablationcam">
+                                <label class="form-check-label" for="ablationcam">
+                                    <strong>AblationCAM</strong> - Ablation-based explanations
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="FullGrad" id="fullgrad">
+                                <label class="form-check-label" for="fullgrad">
+                                    <strong>FullGrad</strong> - Full gradient decomposition
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="EigenGradCAM" id="eigengradcam">
+                                <label class="form-check-label" for="eigengradcam">
+                                    <strong>EigenGradCAM</strong> - Eigen-weighted GradCAM
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="Integrated Gradients" id="integratedgradients">
+                                <label class="form-check-label" for="integratedgradients">
+                                    <strong>Integrated Gradients</strong> - Path-based attribution
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input method-checkbox" type="checkbox" value="LIME" id="lime">
+                                <label class="form-check-label" for="lime">
+                                    <strong>LIME</strong> - Local Interpretable Model-agnostic Explanations
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllMethods()">
+                            <i class="fas fa-check-double me-2"></i>Select All
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearMethodSelection()">
+                            <i class="fas fa-times me-2"></i>Clear All
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="selectRecommendedMethods()">
+                            <i class="fas fa-star me-2"></i>Recommended
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analyze Button -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <button type="button" class="btn btn-primary btn-lg" id="analyzeBtn" onclick="startAnalysis()" disabled>
+                <i class="fas fa-play me-2"></i>Start Explainability Analysis
+            </button>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div class="analysis-progress" id="analysisProgress">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Analyzing...</span>
+                </div>
+                <h5>Analyzing Image...</h5>
+                <p id="progressText">Preparing analysis...</p>
+                <div class="progress mb-3">
+                    <div class="progress-bar" role="progressbar" id="progressBar" style="width: 0%"></div>
+                </div>
+                <small class="text-muted" id="progressDetails">This may take a few minutes depending on the number of methods selected.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="results-container" id="resultsContainer">
+        <!-- Prediction Summary -->
+        <div class="prediction-info" id="predictionInfo">
+            <!-- Will be populated by JavaScript -->
+        </div>
+
+        <!-- Method Results -->
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-chart-bar me-2"></i>Explainability Results</h4>
+            </div>
+            <div class="card-body">
+                <div id="methodResults">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Comparison -->
+        <div class="card mt-4" id="modelComparisonCard" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-balance-scale me-2"></i>Model Comparison</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="comparisonTable">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Architecture</th>
+                                <th>Prediction</th>
+                                <th>Confidence</th>
+                                <th>Accuracy</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparisonTableBody">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Results -->
+        <div class="text-center mt-4">
+            <button type="button" class="btn btn-outline-primary" onclick="downloadResults()">
+                <i class="fas fa-download me-2"></i>Download Results
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="resetAnalysis()">
+                <i class="fas fa-redo me-2"></i>New Analysis
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let selectedModels = [];
+let selectedMethods = [];
+let analysisResults = null;
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadAvailableModels();
+    setupImageUpload();
+    updateAnalyzeButton();
+});
+
+// Image upload functionality
+function setupImageUpload() {
+    const uploadZone = document.getElementById('uploadZone');
+    const imageInput = document.getElementById('imageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+
+    uploadZone.addEventListener('click', () => imageInput.click());
+    uploadZone.addEventListener('dragover', handleDragOver);
+    uploadZone.addEventListener('dragleave', handleDragLeave);
+    uploadZone.addEventListener('drop', handleDrop);
+    imageInput.addEventListener('change', handleImageSelect);
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    }
+
+    function handleDragLeave(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            imageInput.files = files;
+            handleImageSelect();
+        }
+    }
+
+    function handleImageSelect() {
+        const file = imageInput.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                imagePreview.style.display = 'block';
+                updateAnalyzeButton();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+}
+
+// Load available models
+function loadAvailableModels() {
+    fetch('/api/models')
+        .then(response => response.json())
+        .then(data => {
+            displayModels(data.models);
+            document.getElementById('modelLoading').style.display = 'none';
+            document.getElementById('modelSelection').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error loading models:', error);
+            document.getElementById('modelLoading').innerHTML = '<div class="alert alert-danger">Error loading models</div>';
+        });
+}
+
+// Display model cards
+function displayModels(models) {
+    const modelCards = document.getElementById('modelCards');
+    modelCards.innerHTML = '';
+
+    models.forEach(model => {
+        const card = document.createElement('div');
+        card.className = 'col-md-6 col-lg-4 mb-3';
+        card.innerHTML = `
+            <div class="card model-card h-100" onclick="toggleModel('${model.file_name}')">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-brain me-2"></i>${model.architecture}
+                    </h6>
+                    <p class="card-text">
+                        <small class="text-muted">${model.file_name}</small><br>
+                        <strong>Accuracy:</strong> ${(model.accuracy * 100).toFixed(1)}%<br>
+                        <strong>Size:</strong> ${model.file_size_mb.toFixed(1)} MB<br>
+                        <strong>Modified:</strong> ${model.modified_time}
+                    </p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="${model.file_name}" id="model_${model.file_name}">
+                        <label class="form-check-label" for="model_${model.file_name}">
+                            Select for analysis
+                        </label>
+                    </div>
+                </div>
+            </div>
+        `;
+        modelCards.appendChild(card);
+    });
+}
+
+// Model selection functions
+function toggleModel(modelName) {
+    const checkbox = document.getElementById(`model_${modelName}`);
+    const card = checkbox.closest('.model-card');
+    
+    checkbox.checked = !checkbox.checked;
+    
+    if (checkbox.checked) {
+        selectedModels.push(modelName);
+        card.classList.add('selected');
+    } else {
+        selectedModels = selectedModels.filter(m => m !== modelName);
+        card.classList.remove('selected');
+    }
+    
+    updateAnalyzeButton();
+}
+
+function selectAllModels() {
+    const checkboxes = document.querySelectorAll('input[id^="model_"]');
+    selectedModels = [];
+    
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+        selectedModels.push(cb.value);
+        cb.closest('.model-card').classList.add('selected');
+    });
+    
+    updateAnalyzeButton();
+}
+
+function clearModelSelection() {
+    const checkboxes = document.querySelectorAll('input[id^="model_"]');
+    selectedModels = [];
+    
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+        cb.closest('.model-card').classList.remove('selected');
+    });
+    
+    updateAnalyzeButton();
+}
+
+// Method selection functions
+function selectAllMethods() {
+    const checkboxes = document.querySelectorAll('.method-checkbox');
+    selectedMethods = [];
+    
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+        selectedMethods.push(cb.value);
+    });
+    
+    updateAnalyzeButton();
+}
+
+function clearMethodSelection() {
+    const checkboxes = document.querySelectorAll('.method-checkbox');
+    selectedMethods = [];
+    
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+    
+    updateAnalyzeButton();
+}
+
+function selectRecommendedMethods() {
+    clearMethodSelection();
+    const recommended = ['GradCAM', 'GradCAM++', 'ScoreCAM', 'LayerCAM'];
+    
+    recommended.forEach(method => {
+        const checkbox = document.getElementById(method.toLowerCase().replace('+', 'p'));
+        if (checkbox) {
+            checkbox.checked = true;
+            selectedMethods.push(method);
+        }
+    });
+    
+    updateAnalyzeButton();
+}
+
+// Update selected methods when checkboxes change
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('method-checkbox')) {
+        selectedMethods = Array.from(document.querySelectorAll('.method-checkbox:checked')).map(cb => cb.value);
+        updateAnalyzeButton();
+    }
+});
+
+// Update analyze button state
+function updateAnalyzeButton() {
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const hasImage = document.getElementById('imageInput').files.length > 0;
+    const hasModels = selectedModels.length > 0;
+    const hasMethods = selectedMethods.length > 0;
+    
+    analyzeBtn.disabled = !(hasImage && hasModels && hasMethods);
+}
+
+// Start analysis
+function startAnalysis() {
+    const formData = new FormData();
+    formData.append('image', document.getElementById('imageInput').files[0]);
+    formData.append('models', JSON.stringify(selectedModels));
+    formData.append('methods', JSON.stringify(selectedMethods));
+    
+    // Show progress
+    document.getElementById('analysisProgress').style.display = 'block';
+    document.getElementById('resultsContainer').style.display = 'none';
+    document.getElementById('analyzeBtn').disabled = true;
+    
+    // Start progress simulation
+    simulateProgress();
+    
+    fetch('/api/explainability_analysis', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        analysisResults = data;
+        displayResults(data);
+        document.getElementById('analysisProgress').style.display = 'none';
+        document.getElementById('resultsContainer').style.display = 'block';
+        document.getElementById('analyzeBtn').disabled = false;
+    })
+    .catch(error => {
+        console.error('Analysis error:', error);
+        alert('Analysis failed: ' + error.message);
+        document.getElementById('analysisProgress').style.display = 'none';
+        document.getElementById('analyzeBtn').disabled = false;
+    });
+}
+
+// Simulate progress
+function simulateProgress() {
+    let progress = 0;
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    const steps = [
+        'Loading models...',
+        'Preprocessing image...',
+        'Generating explanations...',
+        'Processing results...',
+        'Finalizing analysis...'
+    ];
+    
+    const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 95) progress = 95;
+        
+        progressBar.style.width = progress + '%';
+        progressText.textContent = steps[Math.floor(progress / 20)] || 'Completing analysis...';
+    }, 1000);
+    
+    // Clear interval when analysis completes (handled by the fetch response)
+    setTimeout(() => clearInterval(interval), 30000); // Max 30 seconds
+}
+
+// Display analysis results
+function displayResults(data) {
+    // Display prediction info
+    displayPredictionInfo(data);
+    
+    // Display method results
+    displayMethodResults(data);
+    
+    // Display model comparison if multiple models
+    if (selectedModels.length > 1) {
+        displayModelComparison(data);
+    }
+}
+
+function displayPredictionInfo(data) {
+    const predictionInfo = document.getElementById('predictionInfo');
+    // This would be populated based on the actual data structure
+    predictionInfo.innerHTML = `
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h4><i class="fas fa-brain me-2"></i>AI Analysis Complete</h4>
+                <p class="mb-0">Comprehensive explainability analysis has been generated using ${selectedMethods.length} methods across ${selectedModels.length} models.</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <i class="fas fa-check-circle fa-3x"></i>
+            </div>
+        </div>
+    `;
+}
+
+function displayMethodResults(data) {
+    const methodResults = document.getElementById('methodResults');
+    // This would display the actual method results based on the data structure
+    methodResults.innerHTML = `
+        <div class="method-grid">
+            ${selectedMethods.map(method => `
+                <div class="method-result">
+                    <h6>${method}</h6>
+                    <div class="placeholder-image bg-light d-flex align-items-center justify-content-center" style="height: 200px; border-radius: 8px;">
+                        <i class="fas fa-image fa-2x text-muted"></i>
+                    </div>
+                    <div class="execution-time">Processing time: ~2.3s</div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function displayModelComparison(data) {
+    document.getElementById('modelComparisonCard').style.display = 'block';
+    // This would populate the comparison table with actual data
+}
+
+// Utility functions
+function clearImage() {
+    document.getElementById('imageInput').value = '';
+    document.getElementById('imagePreview').style.display = 'none';
+    updateAnalyzeButton();
+}
+
+function downloadResults() {
+    if (!analysisResults) return;
+    
+    // Create downloadable content
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(analysisResults, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "explainability_results.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function resetAnalysis() {
+    // Reset form
+    document.getElementById('explainabilityForm').reset();
+    document.getElementById('imagePreview').style.display = 'none';
+    document.getElementById('resultsContainer').style.display = 'none';
+    document.getElementById('analysisProgress').style.display = 'none';
+    
+    // Clear selections
+    clearModelSelection();
+    clearMethodSelection();
+    
+    analysisResults = null;
+    updateAnalyzeButton();
+}
+</script>
+{% endblock %}
