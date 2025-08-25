@@ -52,7 +52,7 @@ db.init_app(app)
 from models import AnalysisResult, BatchProcess
 from ml_models import MangoLeafModel, load_model
 from xai_explainer import XAIExplainer
-from comprehensive_xai_explainer import ComprehensiveXAIExplainer
+from xai_explainer import ComprehensiveXAIExplainer
 from multi_model_manager import MultiModelManager
 from treatments import get_treatment_recommendation
 
@@ -625,5 +625,4 @@ with app.app_context():
     except Exception as e:
         logging.warning(f"Components not loaded on startup: {str(e)}")
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+# Run via main.py or gunicorn for production

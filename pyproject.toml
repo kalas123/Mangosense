@@ -1,7 +1,7 @@
 [project]
-name = "repl-nix-workspace"
+name = "mango-disease-detection"
 version = "0.1.0"
-description = "Add your description here"
+description = "Mango Leaf Disease Detection with Explainable AI"
 requires-python = ">=3.11"
 dependencies = [
     "email-validator>=2.2.0",
@@ -22,8 +22,6 @@ dependencies = [
     "torchvision>=0.23.0",
     "werkzeug>=3.1.3",
     "grad-cam>=1.4.6",
-    "captum>=0.6.0",
-    "lime>=0.2.0.1",
     "timm>=0.9.12",
 ]
 
